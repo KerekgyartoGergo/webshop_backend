@@ -52,10 +52,12 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: function(req, file, cb) {
-        const now = new Date().toISOString().split('T')[0];
-        cb(null, `${now}-${file.originalname}`);
+        const now = new Date();
+        const dateString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}-${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}-${now.getSeconds().toString().padStart(2, '0')}`;
+        cb(null, `${dateString}-${file.originalname}`);
     }
 });
+
 const upload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 },
@@ -380,7 +382,11 @@ app.get('/api/categories', authenticateToken, (req, res) => {
 });
 
 
-//keresés atermékekben
+//kategoria termékek
+
+
+
+//keresés a termékekben
 app.get('/api/search/:searchQuery', authenticateToken, (req, res) => {
     const searchQuery = req.params.searchQuery;
     console.log(searchQuery);
@@ -390,16 +396,35 @@ app.get('/api/search/:searchQuery', authenticateToken, (req, res) => {
     }
 
     const sqlQuery = `
-        SELECT p.* 
-        FROM products p
-        JOIN categories c ON p.category_id = c.category_id
-        WHERE p.name LIKE ? 
-           OR p.description LIKE ? 
-           OR c.name LIKE ? 
-           OR c.description LIKE ?
-    `;
-    const values = [`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`];
-
+    SELECT p.* 
+    FROM products p
+    JOIN categories c ON p.category_id = c.category_id
+    WHERE p.name LIKE ? 
+       OR p.description LIKE ? 
+       OR p.pic LIKE ?
+       OR p.Jelátvitel LIKE ?
+       OR p.Max_működési_idő LIKE ?
+       OR p.Hordhatósági_változatok LIKE ?
+       OR p.Termék_típusa LIKE ?
+       OR p.Kivitel LIKE ?
+       OR p.Bluetooth_verzió LIKE ?
+       OR p.Hangszóró_meghajtók LIKE ?
+       OR p.Szín LIKE ?
+       OR p.Csatlakozók LIKE ?
+       OR p.Bluetooth LIKE ?
+       OR p.Frekvenciaátvitel LIKE ?
+       OR p.Érzékenység LIKE ?
+       OR c.name LIKE ? 
+       OR c.description LIKE ?
+       `;
+       const values = [
+        `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, 
+        `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, 
+        `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, 
+        `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`, 
+        `%${searchQuery}%`, `%${searchQuery}%`
+    ];
+    
     pool.query(sqlQuery, values, (err, results) => {
         if (err) {
             console.log(err);
@@ -653,8 +678,6 @@ app.post('/api/deleteCart', authenticateToken, (req, res) => {
     });
 });
 
-
-//rendelés leadás
 app.post('/api/addOrderWithItems', authenticateToken, (req, res) => {
     if (req.user.role === 'admin') {
         return res.status(403).json({ error: 'Admin nem adhat le rendelést' });
@@ -666,92 +689,153 @@ app.post('/api/addOrderWithItems', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Minden mezőt ki kell tölteni' });
     }
 
-    const insertOrderQuery = 'INSERT INTO orders (order_id, user_id, order_date, status, tel, iranyitoszam, varos, cim) VALUES (NULL, ?, current_timestamp(), ?, ?, ?, ?, ?)';
-    
-    pool.query(insertOrderQuery, [req.user.id, 'pending', tel, iranyitoszam, varos, cim], (err, orderResult) => {
+    const getCartItemsQuery = `
+        SELECT ci.product_id, ci.quantity, p.stock, p.name ,p.pic, p.price
+        FROM cart_items ci 
+        JOIN products p ON ci.product_id = p.product_id 
+        JOIN carts c ON ci.cart_id = c.cart_id 
+        WHERE c.user_id = ?`;
+
+    pool.query(getCartItemsQuery, [req.user.id], (err, cartItems) => {
         if (err) {
             console.error(err);
-            return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
+            return res.status(500).json({ error: 'Hiba a kosár lekérdezésekor' });
+        }
+        
+        if (!cartItems.length) {
+            return res.status(404).json({ error: 'Nincsenek termékek a kosárban' });
+        }
+        
+        // Ellenőrizzük, hogy minden termékből van-e elég készlet
+        
+        console.log("asdasd",cartItems);
+        let stockErrors = [];
+        cartItems.forEach(item => {
+            if (item.quantity > item.stock) {
+                stockErrors.push(`${item.name} (Elérhető: ${item.stock} db)`);
+            }
+        });
+
+        // Ha bármelyik termékből nincs elég, akkor nem engedjük leadni a rendelést
+        if (stockErrors.length > 0) {
+            return res.status(400).json({ 
+                error: 'Nincs elegendő készlet az alábbi termékekből:',
+                details: stockErrors.join('\n')
+            });
         }
 
-        const order_id = orderResult.insertId;
+        // Ha minden OK, beszúrjuk a rendelést
+        const insertOrderQuery = `INSERT INTO orders (user_id, order_date, status, tel, iranyitoszam, varos, cim) 
+                                  VALUES (?, current_timestamp(), ?, ?, ?, ?, ?)`;
 
-        const getCartIdQuery = 'SELECT cart_id FROM carts WHERE user_id = ?';
-        
-        pool.query(getCartIdQuery, [req.user.id], (err, cartResult) => {
+        pool.query(insertOrderQuery, [req.user.id, 'pending', tel, iranyitoszam, varos, cim], (err, orderResult) => {
             if (err) {
                 console.error(err);
-                return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
+                return res.status(500).json({ error: 'Hiba az order beszúrásakor' });
             }
 
-            if (!cartResult.length) {
-                return res.status(404).json({ error: 'Nincs kosár a felhasználóhoz' });
-            }
+            const order_id = orderResult.insertId;
 
-            const cart_id = cartResult[0].cart_id;
+            // Rendelt termékek beszúrása az order_items táblába
+            const insertOrderItemsQuery = 'INSERT INTO order_items (order_id, product_id, quantity) VALUES ?';
+            const values = cartItems.map(item => [order_id, item.product_id, item.quantity]);
 
-            const getCartItemsQuery = 'SELECT product_id, quantity FROM cart_items WHERE cart_id = ?';
-            
-            pool.query(getCartItemsQuery, [cart_id], (err, cartItems) => {
+            pool.query(insertOrderItemsQuery, [values], (err, result) => {
                 if (err) {
                     console.error(err);
-                    return res.status(500).json({ error: 'Hiba a kosár lekérdezésekor' });
+                    return res.status(500).json({ error: 'Hiba az order_items beszúrásánál' });
                 }
 
-                if (!cartItems.length) {
-                    return res.status(404).json({ error: 'Nincsenek termékek a kosárban' });
-                }
+                // ✅ Készletek frissítése
+                const updateStockQuery = `
+                    UPDATE products 
+                    SET stock = stock - ? 
+                    WHERE product_id = ?`;
 
-                const insertOrderItemsQuery = 'INSERT INTO order_items (order_id, product_id, quantity) VALUES ?';
-                const values = cartItems.map(item => [order_id, item.product_id, item.quantity]);
-                
-                pool.query(insertOrderItemsQuery, [values], (err, result) => {
+                cartItems.forEach(item => {
+                    pool.query(updateStockQuery, [item.quantity, item.product_id], (err) => {
+                        if (err) console.error(`Hiba a készlet frissítésénél: ${err}`);
+                    });
+                });
+
+                // ✅ Kosár törlése
+                const deleteCartItemsQuery = 'DELETE FROM cart_items WHERE cart_id = (SELECT cart_id FROM carts WHERE user_id = ?)';
+                pool.query(deleteCartItemsQuery, [req.user.id], (err) => {
                     if (err) {
                         console.error(err);
-                        return res.status(500).json({ error: 'Hiba az order_items beszúrásánál' });
+                        return res.status(500).json({ error: 'Hiba a kosár törlésekor' });
+                    }
+                });
+
+                // ✅ E-mail küldés
+                const userEmailQuery = 'SELECT email FROM users WHERE user_id = ?';
+                pool.query(userEmailQuery, [req.user.id], (err, emailResult) => {
+                    if (err || !emailResult.length) {
+                        console.error(err);
+                        return res.status(500).json({ error: 'Nem sikerült lekérni a felhasználó e-mail címét' });
                     }
 
-                    // E-mail küldés közvetlenül a Nodemailer-rel
-                    const userEmailQuery = 'SELECT email FROM users WHERE user_id = ?';
-                    pool.query(userEmailQuery, [req.user.id], (err, emailResult) => {
-                        console.log(emailResult);
-                        if (err || !emailResult.length) {
+                    const userEmail = emailResult[0].email;
+                    const subject = 'Rendelés sikeresen leadva';
+                    let productListHTML = cartItems.map((item, index) => {
+                        const cid = `productImage${index}`;
+                        return `
+                            <li>
+                                <b>${item.name}</b><br>
+                                Ár: ${item.price} Ft<br>
+                                Mennyiség: ${item.quantity}<br>
+                                <img src="cid:${cid}" alt="${item.name}" width="100px" /><br>
+                            </li>
+                        `;
+                    }).join('');
+
+                    const text = `Kedves vásárló!\n\nKöszönjük, hogy nálunk vásárolt! A rendelés részletei:\n\nRendelési azonosító: ${order_id}\nTelefonszám: ${tel}\nCím: ${iranyitoszam}, ${varos}, ${cim}\n\nTermékek:\n${productListHTML}\n\nÜdvözlettel,\nA The Shop csapata`;
+
+                    const attachments = cartItems.map((item, index) => ({
+                        filename: `${item.name}.jpg`,  // A fájl neve
+                        path: `./uploads/${item.pic}`,  // A fájl elérési útja a szerveren
+                        cid: `productImage${index}`  // Egyedi Content-ID
+                    }));
+
+                    const transporter = nodemailer.createTransport({
+                        service: 'gmail',
+                        auth: {
+                            user: 'the.shop.orderinfo@gmail.com',
+                            pass: process.env.EMAIL_PSW2,
+                        }
+                    });
+
+                    const mailOptions = {
+                        from: 'the.shop.orderinfo@gmail.com',
+                        to: userEmail,
+                        subject: subject,
+                        html: `<p>Kedves vásárló!</p>
+                               <p>Köszönjük, hogy nálunk vásárolt!</p>
+                               <p>A rendelés részletei:</p>
+                               <ul>
+                                   <li><b>Rendelési azonosító:</b> ${order_id}</li>
+                                   <li><b>Telefonszám:</b> ${tel}</li>
+                                   <li><b>Cím:</b> ${iranyitoszam}, ${varos}, ${cim}</li>
+                               </ul>
+                               <p><b>Termékek:</b></p>
+                               <ul>
+                                   ${productListHTML}
+                               </ul>
+                               <p>Hamarosan értesítjük a szállítás részleteiről.</p>
+                               <p>Üdvözlettel,<br><b>A The Shop csapata</b></p>`,
+                        attachments: attachments,
+                    };
+
+                    transporter.sendMail(mailOptions, (err) => {
+                        if (err) {
                             console.error(err);
-                            return res.status(500).json({ error: 'Nem sikerült lekérni a felhasználó e-mail címét' });
+                            return res.status(500).json({ error: 'Hiba történt az e-mail küldésekor' });
                         }
 
-                        const userEmail = emailResult[0].email;
-                        const subject = 'Rendelés sikeresen leadva';
-                        const text = `Kedves vásárló!,\n\nKöszönjük, hogy nálunk vásárolt! A rendelés részletei:\n\nRendelési azonosító: ${order_id}\nTelefonszám: ${tel}\nCím: ${iranyitoszam}, ${varos}, ${cim}\n\nHamarosan értesítjük a szállítás részleteiről.\n\nÜdvözlettel,\nA The Shop csapata`;
-
-                        // Nodemailer konfiguráció
-                        const transporter = nodemailer.createTransport({
-                            service: 'gmail',
-                            auth: {
-                                user: 'the.shop.orderinfo@gmail.com',
-                                pass: process.env.EMAIL_PSW,
-                            }
-                        });
-
-                        const mailOptions = {
-                            from: 'the.shop.orderinfo@gmail.com',
-                            to: userEmail,
-                            subject: subject,
-                            text: text
-                        };
-
-                        // E-mail küldése
-                        transporter.sendMail(mailOptions, (err, info) => {
-                            if (err) {
-                                console.error(err);
-                                return res.status(500).json({ error: 'Hiba történt az e-mail küldésekor', details: err.message });
-                            }
-
-                            return res.status(201).json({ 
-                                message: 'Rendelés sikeresen létrehozva, termékek hozzáadva és e-mail elküldve', 
-                                order_id: order_id, 
-                                insertedRows: result.affectedRows 
-                            });
+                        return res.status(201).json({ 
+                            message: 'Rendelés sikeresen létrehozva, termékek hozzáadva és e-mail elküldve!', 
+                            order_id: order_id, 
+                            insertedRows: result.affectedRows 
                         });
                     });
                 });
@@ -759,6 +843,72 @@ app.post('/api/addOrderWithItems', authenticateToken, (req, res) => {
         });
     });
 });
+
+
+
+
+//felhasználó rendelései
+app.get('/api/my-orders', authenticateToken, (req, res) => {
+    const userId = req.user.id; // Bejelentkezett felhasználó azonosítója
+
+    const sql = `
+        SELECT 
+            o.order_id, 
+            o.status,
+            p.name, 
+            p.pic, 
+            p.price,
+            oi.quantity
+        FROM webshop.orders o
+        JOIN webshop.order_items oi ON o.order_id = oi.order_id
+        JOIN webshop.products p ON oi.product_id = p.product_id
+        WHERE o.user_id = ?
+    `;
+
+    pool.query(sql, [userId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Hiba az SQL-ben', err });
+        }
+
+        if (result.length === 0) {
+            return res.status(404).json({ error: 'Nincsenek rendeléseid' });
+        }
+
+        return res.status(200).json(result);
+    });
+});
+
+
+//felhasználó rendelései végösszeg
+
+app.get('/api/getOrderTotal', authenticateToken, (req, res) => {
+    const orderId = req.query.order_id; // A rendelés ID a query paraméterek között érkezik
+
+    if (!orderId) {
+        return res.status(400).json({ error: 'Nincs megadva rendelés azonosító' });
+    }
+
+    const getOrderTotalQuery = `
+        SELECT 
+            SUM(oi.quantity * p.price) AS total_price
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.product_id
+        WHERE oi.order_id = ?`;
+
+    pool.query(getOrderTotalQuery, [orderId], (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Hiba az SQL-ben', err });
+        }
+
+        if (result.length === 0 || result[0].total_price === null) {
+            return res.status(404).json({ error: 'Nincsenek tételek a rendelésben' });
+        }
+
+        return res.status(200).json({ total_price: result[0].total_price });
+    });
+});
+
 
 
 
@@ -1096,57 +1246,63 @@ app.post('/api/updateItem', authenticateToken, upload.single('pic'), (req, res) 
 });
  //termék szerkesztése2
 
- app.post('/api/updateProductsInfo', authenticateToken, (req, res) => {
-    // Csak adminok frissíthetnek
+ app.post('/api/updateItemInfo', authenticateToken, (req, res) => {
+
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Nincs jogosultságod termék frissítésére' });
     }
 
-    // Kiválasztjuk az adatokat a kérelemből
-    const { 
-        Jelátvitel, Max_működési_idő, Hordhatósági_változatok, Termék_típusa, Kivitel, 
-        Bluetooth_verzió, Hangszóró_meghajtók, Szín, Csatlakozók, Bluetooth, 
-        Frekvenciaátvitel, Érzékenység, product_id 
+    const {
+        Jelátvitel,
+        Max_működési_idő,
+        Hordhatósági_változatok,
+        Termék_típusa,
+        Kivitel,
+        Bluetooth_verzió,
+        Hangszóró_meghajtók,
+        Szín,
+        Csatlakozók,
+        Bluetooth,
+        Frekvenciaátvitel,
+        Érzékenység,
     } = req.body;
 
-    // Ha nincs meg a termék ID, válaszolunk egy hibával
-    if (!product_id) {
-        return res.status(400).json({ error: 'A termék ID megadása kötelező' });
+    const id = req.body.id
+
+    console.log(id);
+
+    if (!id) {
+        return res.status(403).json({ error: 'Adj meg egy id-t' });
     }
 
-    // SQL lekérdezés a termék frissítéséhez
     const sql = `
-        UPDATE products
-        SET 
-            Jelátvitel = COALESCE(NULLIF(?, ""), Jelátvitel),
-            Max_működési_idő = COALESCE(NULLIF(?, ""), Max_működési_idő),
-            Hordhatósági_változatok = COALESCE(NULLIF(?, ""), Hordhatósági_változatok),
-            Termék_típusa = COALESCE(NULLIF(?, ""), Termék_típusa),
-            Kivitel = COALESCE(NULLIF(?, ""), Kivitel),
-            Bluetooth_verzió = COALESCE(NULLIF(?, ""), Bluetooth_verzió),
-            Hangszóró_meghajtók = COALESCE(NULLIF(?, ""), Hangszóró_meghajtók),
-            Szín = COALESCE(NULLIF(?, ""), Szín),
-            Csatlakozók = COALESCE(NULLIF(?, ""), Csatlakozók),
-            Bluetooth = COALESCE(NULLIF(?, ""), Bluetooth),
-            Frekvenciaátvitel = COALESCE(NULLIF(?, ""), Frekvenciaátvitel),
-            Érzékenység = COALESCE(NULLIF(?, ""), Érzékenység)
-        WHERE product_id = ?;
+      UPDATE products SET 
+        Jelátvitel = COALESCE(NULLIF(?, ""), Jelátvitel), 
+        Max_működési_idő = COALESCE(NULLIF(?, ""), Max_működési_idő), 
+        Hordhatósági_változatok = COALESCE(NULLIF(?, ""), Hordhatósági_változatok), 
+        Termék_típusa = COALESCE(NULLIF(?, ""), Termék_típusa), 
+        Kivitel = COALESCE(NULLIF(?, ""), Kivitel), 
+        Bluetooth_verzió = COALESCE(NULLIF(?, ""), Bluetooth_verzió), 
+        Hangszóró_meghajtók = COALESCE(NULLIF(?, ""), Hangszóró_meghajtók), 
+        Szín = COALESCE(NULLIF(?, ""), Szín), 
+        Csatlakozók = COALESCE(NULLIF(?, ""), Csatlakozók), 
+        Bluetooth = COALESCE(NULLIF(?, ""), Bluetooth), 
+        Frekvenciaátvitel = COALESCE(NULLIF(?, ""), Frekvenciaátvitel), 
+        Érzékenység = COALESCE(NULLIF(?, ""), Érzékenység) 
+      WHERE product_id = ?;
     `;
 
-    // Lekérdezés futtatása a paraméterekkel
     pool.query(sql, [
-        Jelátvitel, Max_működési_idő, Hordhatósági_változatok, Termék_típusa, Kivitel, 
-        Bluetooth_verzió, Hangszóró_meghajtók, Szín, Csatlakozók, Bluetooth, 
-        Frekvenciaátvitel, Érzékenység, product_id
+        Jelátvitel, Max_működési_idő, Hordhatósági_változatok, Termék_típusa, 
+        Kivitel, Bluetooth_verzió, Hangszóró_meghajtók, Szín, 
+        Csatlakozók, Bluetooth, Frekvenciaátvitel, Érzékenység, id
     ], (err, result) => {
-        // Hiba esetén
         if (err) {
             console.error(err);
-            return res.status(500).json({ error: 'Hiba az adatbázis frissítésekor', details: err  });
+            return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
         }
 
-        // Sikeres frissítés
-        return res.status(200).json({ message: 'A termék sikeresen frissítve' });
+        return res.status(200).json({ message: 'Termék sikeresen frissítve' });
     });
 });
 
@@ -1182,6 +1338,129 @@ app.post('/api/updateCategory', authenticateToken, (req, res) => {
         return res.status(200).json({ message: 'Kategória sikeresen frissítve', category_id: result.insertId });
     });
 });
+
+
+
+
+// az összes rendelés lekérdezése
+app.get('/api/orders', authenticateToken, (req, res) => {
+    // Ellenőrizzük, hogy a felhasználó admin-e
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Nincs jogosultság a megtekintéshez' });
+    }
+
+    const sql = `
+        SELECT 
+            o.order_id, 
+            u.user_id, 
+            u.user_name, 
+            u.email, 
+            o.status,
+            p.product_id, 
+            p.name, 
+            p.stock, 
+            p.pic, 
+            oi.quantity
+        FROM webshop.orders o
+        JOIN webshop.users u ON o.user_id = u.user_id
+        JOIN webshop.order_items oi ON o.order_id = oi.order_id
+        JOIN webshop.products p ON oi.product_id = p.product_id
+    `;
+
+    pool.query(sql, (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Hiba az SQL-ben', err });
+        }
+
+        if (result.length === 0) {
+            return res.status(404).json({ error: 'Nincs még rendelés' });
+        }
+
+        return res.status(200).json(result);
+    });
+});
+
+
+
+app.put('/api/orders/:orderId', authenticateToken, (req, res) => {
+    const { orderId } = req.params;  // A rendelés azonosítója
+    const { status } = req.body;     // A frissítendő státusz
+
+    // Ellenőrizzük, hogy a felhasználó admin-e
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Nincs jogosultság a rendelés szerkesztéséhez' });
+    }
+
+    // Ellenőrizzük, hogy a státusz megfelelő értékkel rendelkezik
+    const validStatuses = ['pending', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Érvénytelen státusz érték' });
+    }
+
+    // Az SQL lekérdezés a rendelés státuszának frissítésére
+    const sql = `
+        UPDATE webshop.orders
+        SET status = ?
+        WHERE order_id = ?
+    `;
+
+    // Az SQL lekérdezés végrehajtása
+    pool.query(sql, [status, orderId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Hiba az SQL-ben', err });
+        }
+
+        // Ha nincs érintett sor, akkor a rendelés nem létezik
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Rendelés nem található' });
+        }
+
+        // E-mail küldés a felhasználónak a státusz frissítéséről
+        const userEmailQuery = 'SELECT email FROM users WHERE user_id = (SELECT user_id FROM webshop.orders WHERE order_id = ?)';
+        pool.query(userEmailQuery, [orderId], (err, emailResult) => {
+            if (err || !emailResult.length) {
+                console.error(err);
+                return res.status(500).json({ error: 'Nem sikerült lekérni a felhasználó e-mail címét' });
+            }
+
+            const userEmail = emailResult[0].email;
+            const subject = 'Rendelés státusz frissítve';
+            const text = `Kedves vásárló!\n\nA rendelésed státusza frissült: ${status}.\n\nÜdvözlettel,\nA The Shop csapata`;
+
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: 'the.shop.orderinfo@gmail.com',
+                    pass: process.env.EMAIL_PSW2,
+                }
+            });
+
+            const mailOptions = {
+                from: 'the.shop.orderinfo@gmail.com',
+                to: userEmail,
+                subject: subject,
+                html: `<p>Kedves vásárló!</p>
+                       <p>A rendelésed státusza frissült: <b>${status}</b>.</p>
+                       <p>Üdvözlettel,<br><b>A The Shop csapata</b></p>`
+            };
+
+            transporter.sendMail(mailOptions, (err) => {
+                if (err) {
+                    console.error(err);
+                    return res.status(500).json({ error: 'Hiba történt az e-mail küldésekor' });
+                }
+
+                return res.status(200).json({ 
+                    success: true, 
+                    message: 'Rendelés státusza frissítve és e-mail elküldve!' 
+                });
+            });
+        });
+    });
+});
+
+
+
 
 
 
