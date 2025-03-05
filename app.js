@@ -436,6 +436,37 @@ app.get('/api/search/:searchQuery', authenticateToken, (req, res) => {
 });
 
 
+app.get('/api/getProductsByCategory', authenticateToken, (req, res) => {
+    // A kategória név lekérése a query stringből, pl. /api/getProductsByCategory?category=Elektronika
+    const categoryName = req.query.category;
+    if (!categoryName) {
+        return res.status(400).json({ error: 'Kérlek add meg a kategória nevét!' });
+    }
+
+    const getProductsQuery = `
+        SELECT p.* 
+        FROM products p 
+        JOIN categories c ON p.category_id = c.category_id 
+        WHERE c.name LIKE ?;
+    `;
+
+    // A % operátorral részleges egyezést engedélyezünk a LIKE feltételben
+    pool.query(getProductsQuery, [`%${categoryName}%`], (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Hiba az SQL lekérdezésben', err });
+        }
+
+        if (result.length === 0) {
+            return res.status(404).json({ error: 'Nincs termék a megadott kategóriában' });
+        }
+
+        return res.status(200).json(result);
+    });
+});
+
+
+
 
 
 // kosár tartalmának lekérdezése és termékek megjelenítése
