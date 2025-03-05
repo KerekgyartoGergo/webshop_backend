@@ -1361,10 +1361,10 @@ app.get('/api/orders', authenticateToken, (req, res) => {
             p.stock, 
             p.pic, 
             oi.quantity
-        FROM webshop.orders o
-        JOIN webshop.users u ON o.user_id = u.user_id
-        JOIN webshop.order_items oi ON o.order_id = oi.order_id
-        JOIN webshop.products p ON oi.product_id = p.product_id
+        FROM orders o
+        JOIN users u ON o.user_id = u.user_id
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN products p ON oi.product_id = p.product_id
     `;
 
     pool.query(sql, (err, result) => {
@@ -1399,7 +1399,7 @@ app.put('/api/orders/:orderId', authenticateToken, (req, res) => {
 
     // Az SQL lekérdezés a rendelés státuszának frissítésére
     const sql = `
-        UPDATE webshop.orders
+        UPDATE orders
         SET status = ?
         WHERE order_id = ?
     `;
@@ -1416,7 +1416,7 @@ app.put('/api/orders/:orderId', authenticateToken, (req, res) => {
         }
 
         // E-mail küldés a felhasználónak a státusz frissítéséről
-        const userEmailQuery = 'SELECT email FROM users WHERE user_id = (SELECT user_id FROM webshop.orders WHERE order_id = ?)';
+        const userEmailQuery = 'SELECT email FROM users WHERE user_id = (SELECT user_id FROM orders WHERE order_id = ?)';
         pool.query(userEmailQuery, [orderId], (err, emailResult) => {
             if (err || !emailResult.length) {
                 console.error(err);
