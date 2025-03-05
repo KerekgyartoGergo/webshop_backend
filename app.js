@@ -859,9 +859,9 @@ app.get('/api/my-orders', authenticateToken, (req, res) => {
             p.pic, 
             p.price,
             oi.quantity
-        FROM webshop.orders o
-        JOIN webshop.order_items oi ON o.order_id = oi.order_id
-        JOIN webshop.products p ON oi.product_id = p.product_id
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN products p ON oi.product_id = p.product_id
         WHERE o.user_id = ?
     `;
 
