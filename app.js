@@ -1186,7 +1186,7 @@ app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
 
     const sql2 = 'DELETE FROM cart_items WHERE product_id  = ?';
     const sql = 'DELETE FROM products WHERE product_id = ?';
-    pool.query(sql2, sql, [id], (err, result) => {
+    pool.query(sql2, sql, [id],[id], (err, result) => {
         if (err) {
             console.error(err);
             return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
