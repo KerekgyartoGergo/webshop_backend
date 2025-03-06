@@ -1185,54 +1185,69 @@ app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
 
     pool.getConnection((err, connection) => {
         if (err) {
-            console.error(err);
+            console.error('Adatbázis kapcsolódási hiba:', err);
             return res.status(500).json({ error: 'Adatbázis kapcsolódási hiba' });
         }
 
         connection.beginTransaction(err => {
             if (err) {
                 connection.release();
+                console.error('Tranzakció indítási hiba:', err);
                 return res.status(500).json({ error: 'Tranzakció indítási hiba' });
             }
 
-            const deleteCardItemsSql = 'DELETE FROM cart_items WHERE product_id = ?';
-            connection.query(deleteCardItemsSql, [id], (err, result) => {
+            // Törlés az order_items táblából
+            const deleteOrderItemsSql = 'DELETE FROM order_items WHERE product_id = ?';
+            connection.query(deleteOrderItemsSql, [id], (err, result) => {
                 if (err) {
                     return connection.rollback(() => {
                         connection.release();
-                        console.error(err);
-                        res.status(500).json({ error: 'Hiba a kapcsolódó kosár elemek törlésében' });
+                        console.error('Hiba a kapcsolódó rendelési elemek törlésében:', err);
+                        res.status(500).json({ error: 'Hiba a kapcsolódó rendelési elemek törlésében' });
                     });
                 }
 
-                const deleteProductSql = 'DELETE FROM products WHERE product_id = ?';
-                connection.query(deleteProductSql, [id], (err, result) => {
+                // Törlés a card_items táblából
+                const deleteCardItemsSql = 'DELETE FROM cart_items WHERE product_id = ?';
+                connection.query(deleteCardItemsSql, [id], (err, result) => {
                     if (err) {
                         return connection.rollback(() => {
                             connection.release();
-                            console.error(err);
-                            res.status(500).json({ error: 'Hiba a termék törlésében' });
+                            console.error('Hiba a kapcsolódó kosár elemek törlésében:', err);
+                            res.status(500).json({ error: 'Hiba a kapcsolódó kosár elemek törlésében' });
                         });
                     }
 
-                    if (result.affectedRows === 0) {
-                        return connection.rollback(() => {
-                            connection.release();
-                            res.status(404).json({ error: 'A megadott ID-vel nem található termék' });
-                        });
-                    }
-
-                    connection.commit(err => {
+                    // Törlés a products táblából
+                    const deleteProductSql = 'DELETE FROM products WHERE product_id = ?';
+                    connection.query(deleteProductSql, [id], (err, result) => {
                         if (err) {
                             return connection.rollback(() => {
                                 connection.release();
-                                console.error(err);
-                                res.status(500).json({ error: 'Tranzakció véglegesítési hiba' });
+                                console.error('Hiba a termék törlésében:', err);
+                                res.status(500).json({ error: 'Hiba a termék törlésében' });
                             });
                         }
 
-                        connection.release();
-                        res.status(200).json({ message: 'Termék és kapcsolódó kosár elemek sikeresen törölve' });
+                        if (result.affectedRows === 0) {
+                            return connection.rollback(() => {
+                                connection.release();
+                                res.status(404).json({ error: 'A megadott ID-vel nem található termék' });
+                            });
+                        }
+
+                        connection.commit(err => {
+                            if (err) {
+                                return connection.rollback(() => {
+                                    connection.release();
+                                    console.error('Tranzakció véglegesítési hiba:', err);
+                                    res.status(500).json({ error: 'Tranzakció véglegesítési hiba' });
+                                });
+                            }
+
+                            connection.release();
+                            res.status(200).json({ message: 'Termék és kapcsolódó elemek sikeresen törölve' });
+                        });
                     });
                 });
             });
