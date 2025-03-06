@@ -1172,7 +1172,7 @@ app.post('/api/upload', authenticateToken, upload.single('pic'), (req, res) => {
 });
 
 
-//termék törlése
+// Termék törlése
 app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Nincs jogosultságod termék törlésére' });
@@ -1184,19 +1184,28 @@ app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Adja meg a törölni kívánt termék ID-jét' });
     }
 
-    const sql2 = 'DELETE FROM cart_items WHERE product_id  = ?';
-    const sql = 'DELETE FROM products WHERE product_id = ?';
-    pool.query(sql2, sql, [id],[id], (err, result) => {
+    // Először töröljük a terméket a kosárból
+    const deleteFromCartSql = 'DELETE FROM cart_items WHERE product_id = ?';
+    pool.query(deleteFromCartSql, [id], (err, cartResult) => {
         if (err) {
             console.error(err);
-            return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
+            return res.status(500).json({ error: 'Hiba a kosár törlése közben' });
         }
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'A megadott ID-vel nem található termék' });
-        }
+        // Ezután töröljük a terméket magát
+        const deleteProductSql = 'DELETE FROM products WHERE product_id = ?';
+        pool.query(deleteProductSql, [id], (err, productResult) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
+            }
 
-        return res.status(200).json({ message: 'Termék sikeresen törölve' });
+            if (productResult.affectedRows === 0) {
+                return res.status(404).json({ error: 'A megadott ID-vel nem található termék' });
+            }
+
+            return res.status(200).json({ message: 'Termék sikeresen törölve a kosárból és az adatbázisból' });
+        });
     });
 });
 
