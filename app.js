@@ -1160,7 +1160,7 @@ app.post('/api/upload', authenticateToken, upload.single('pic'), (req, res) => {
         return res.status(400).json({ error: 'Minden mezőt ki kell tölteni' });
     }
 
-    const sql = 'INSERT INTO products (product_id, name, description, price, stock, category_id, pic, Jelátvitel, Max_működési_idő, Hordhatósági_változatok, Termék_típusa, Kivitel, Bluetooth_verzió, Hangszóró_meghajtók, Szín, Csatlakozók, Bluetooth, Frekvenciaátvitel, Érzékenység) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO products (product_id, name, description, price, stock, category_id, pic, Jelátvitel, Max_működési_idő, Hordhatósági_változatok, Termék_típusa, Kivitel, Bluetooth_verzió, Hangszóró_meghajtók, Szín, Csatlakozók, Bluetooth, Frekvenciaátvitel, Érzékenység) VALUES (NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)';
     pool.query(sql, [name, description, price, stock, category_id, pic], (err, result) => {
         if (err) {
             console.error(err);
