@@ -1172,7 +1172,6 @@ app.post('/api/upload', authenticateToken, upload.single('pic'), (req, res) => {
 });
 
 
-// Termék törlése
 app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Nincs jogosultságod termék törlésére' });
@@ -1184,27 +1183,59 @@ app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Adja meg a törölni kívánt termék ID-jét' });
     }
 
-    // Először töröljük a terméket a kosárból
-    const deleteFromCartSql = 'DELETE FROM cart_items WHERE product_id = ?';
-    pool.query(deleteFromCartSql, [id], (err, cartResult) => {
+    pool.getConnection((err, connection) => {
         if (err) {
             console.error(err);
-            return res.status(500).json({ error: 'Hiba a kosár törlése közben' });
+            return res.status(500).json({ error: 'Adatbázis kapcsolódási hiba' });
         }
 
-        // Ezután töröljük a terméket magát
-        const deleteProductSql = 'DELETE FROM products WHERE product_id = ?';
-        pool.query(deleteProductSql, [id], (err, productResult) => {
+        connection.beginTransaction(err => {
             if (err) {
-                console.error(err);
-                return res.status(500).json({ error: 'Hiba az SQL lekérdezésben' });
+                connection.release();
+                return res.status(500).json({ error: 'Tranzakció indítási hiba' });
             }
 
-            if (productResult.affectedRows === 0) {
-                return res.status(404).json({ error: 'A megadott ID-vel nem található termék' });
-            }
+            const deleteCardItemsSql = 'DELETE FROM card_items WHERE product_id = ?';
+            connection.query(deleteCardItemsSql, [id], (err, result) => {
+                if (err) {
+                    return connection.rollback(() => {
+                        connection.release();
+                        console.error(err);
+                        res.status(500).json({ error: 'Hiba a kapcsolódó kosár elemek törlésében' });
+                    });
+                }
 
-            return res.status(200).json({ message: 'Termék sikeresen törölve a kosárból és az adatbázisból' });
+                const deleteProductSql = 'DELETE FROM products WHERE product_id = ?';
+                connection.query(deleteProductSql, [id], (err, result) => {
+                    if (err) {
+                        return connection.rollback(() => {
+                            connection.release();
+                            console.error(err);
+                            res.status(500).json({ error: 'Hiba a termék törlésében' });
+                        });
+                    }
+
+                    if (result.affectedRows === 0) {
+                        return connection.rollback(() => {
+                            connection.release();
+                            res.status(404).json({ error: 'A megadott ID-vel nem található termék' });
+                        });
+                    }
+
+                    connection.commit(err => {
+                        if (err) {
+                            return connection.rollback(() => {
+                                connection.release();
+                                console.error(err);
+                                res.status(500).json({ error: 'Tranzakció véglegesítési hiba' });
+                            });
+                        }
+
+                        connection.release();
+                        res.status(200).json({ message: 'Termék és kapcsolódó kosár elemek sikeresen törölve' });
+                    });
+                });
+            });
         });
     });
 });
