@@ -1195,7 +1195,7 @@ app.delete('/api/deleteProduct/:id', authenticateToken, (req, res) => {
                 return res.status(500).json({ error: 'Tranzakció indítási hiba' });
             }
 
-            const deleteCardItemsSql = 'DELETE FROM card_items WHERE product_id = ?';
+            const deleteCardItemsSql = 'DELETE FROM cart_items WHERE product_id = ?';
             connection.query(deleteCardItemsSql, [id], (err, result) => {
                 if (err) {
                     return connection.rollback(() => {
