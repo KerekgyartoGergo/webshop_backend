@@ -191,7 +191,7 @@ app.put('/api/editProfilePsw', authenticateToken, (req, res) => {
     const psw = req.body.psw;
     const salt = 10;
 
-    console.log(user_id, psw);
+    //console.log(user_id, psw);
     if (psw === '' || !validator.isLength(psw, { min: 6 })) {
         return res.status(400).json({ error: 'A jelszónak min 6 karakterből kell állnia!' });
     }
@@ -458,7 +458,7 @@ app.get('/api/search/:searchQuery', authenticateToken, (req, res) => {
             console.log(err);
             return res.status(500).json({ error: 'Database error' });
         }
-        console.log(results);
+        //console.log(results);
         res.json(results);
     });
 });
