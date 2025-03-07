@@ -737,6 +737,7 @@ app.post('/api/deleteCart', authenticateToken, (req, res) => {
     });
 });
 
+//rendelés
 app.post('/api/addOrderWithItems', authenticateToken, (req, res) => {
     if (req.user.role === 'admin') {
         return res.status(403).json({ error: 'Admin nem adhat le rendelést' });
