@@ -307,3 +307,27 @@ app.put('/api/orders/:orderId', authenticateToken,
 ```javascript
 app.post('/api/send-email',
 ```
+
+
+
+---
+### Tesztelés
+![postman teszt](https://snipboard.io/fL9buN.jpg)
+>[teszteredmények](https://documenter.getpostman.com/view/39908192/2sB2izEDPE)
+
+A projekt jelenleg manuálisan tesztelt és tesztelhető a **Postman** segítségével.
+
+
+---
+
+
+## Használt eszközök
+- [VS code](https://code.visualstudio.com)
+- [NPM](https://www.npmjs.com)
+- [Postman](https://www.postman.com)
+- [DrawSQL](https://drawsql.app)
+- [W3Schools](https://www.w3schools.com)
+- [StackOverflow](https://stackoverflow.com/questions)
+- [ChatGPT](https://chatgpt.com)
+- [GitHub](https://github.com/)
+- [PhpMyAdmin](https://www.phpmyadmin.net)
