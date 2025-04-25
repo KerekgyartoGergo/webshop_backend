@@ -182,88 +182,128 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 >app.js
 
 
-1. Végpontok
+## 1. Alap végpontok
 
-    | Művelet        | HTTP                                               | Végpont         | Leírás                                                                 |
-    |----------------|----------------------------------------------------|-----------------|------------------------------------------------------------------------|
-    | Regisztráció   | ![POST](https://img.shields.io/badge/-POST-yellow) | `/register`     | Új felhasználó regisztrálása                                           |
-    | Bejelentkezés  | ![POST](https://img.shields.io/badge/-POST-yellow) | `/login`        | Felhasználó bejelentkezése                                             |
-    | Kijelentkezés  | ![POST](https://img.shields.io/badge/-POST-yellow) | `/logout`       | Felhasználó kijelentkezése *(hitelesítés szükséges)*                      |
-    | Ellenőrzés     | ![GET](https://img.shields.io/badge/-GET-green)    | `/logintest`     | Bejelentkezés ellenőrzése – igaz értéket ad vissza, ha be van jelentkezve |
+| Művelet           | HTTP                                               | Végpont            | Leírás                                                                 |
+|-------------------|----------------------------------------------------|--------------------|------------------------------------------------------------------------|
+| Regisztráció      | ![POST](https://img.shields.io/badge/-POST-yellow) | `/register`        | Új felhasználó regisztrálása                                           |
+| Bejelentkezés     | ![POST](https://img.shields.io/badge/-POST-yellow) | `/login`           | Felhasználó bejelentkezése                                             |
+| Kijelentkezés     | ![POST](https://img.shields.io/badge/-POST-yellow) | `/logout`          | Felhasználó kijelentkezése *(hitelesítés szükséges)*                  |
+| Ellenőrzés        | ![GET](https://img.shields.io/badge/-GET-green)    | `/logintest`       | Bejelentkezés ellenőrzése – igaz értéket ad vissza, ha be van jelentkezve |
+| Admin regisztráció| ![POST](https://img.shields.io/badge/-POST-yellow) | `/adminRegister`   | Új Admin regisztrálása                                                 |
 
+```javascript
+app.post('/api/register',
+app.post('/api/login',
+app.post('/api/logout', authenticateToken,
+app.get('/api/logintest', authenticateToken,
+app.post('/api/adminRegister',
+```
 
-    ```javascript
-    app.post('/api/register',
-    app.post('/api/login',
-    app.post('/api/logout', authenticateToken,
-    app.get('/api/logintest', authenticateToken,
-    ```
+---
 
-    >app.js
-    
+## 2. Felhasználói végpontok
 
-2. User végpontok
-    | Művelet                    | HTTP                                               | Végpont              | Leírás                                                                 |
-    |----------------------------|----------------------------------------------------|----------------------|------------------------------------------------------------------------|
-    | Saját profil lekérése      | ![GET](https://img.shields.io/badge/-GET-green)     | `/userprofile`       | A bejelentkezett felhasználó saját adatainak lekérése                 |
-    | Más profil lekérése        | ![GET](https://img.shields.io/badge/-GET-green)     | `/userprofile/:uid`  | Más felhasználó adatainak lekérése a(z) UID alapján                     |
-    | Profil szerkesztése        | ![PUT](https://img.shields.io/badge/-PUT-blue)   | `/editprofile`       | A felhasználó adatainak módosítása *(pl. felhasználónév, jelszó)*     |
+| Művelet                    | HTTP                                               | Végpont              | Leírás                                 |
+|----------------------------|----------------------------------------------------|----------------------|----------------------------------------|
+| Profil név szerkesztése    | ![PUT](https://img.shields.io/badge/-PUT-blue)     | `/editProfileName`   | A felhasználó nevének módosítása       |
+| Profil jelszó szerkesztése | ![PUT](https://img.shields.io/badge/-PUT-blue)     | `/editProfilePsw`    | A felhasználó jelszavának módosítása   |
+| Felhasználók lekérése      | ![GET](https://img.shields.io/badge/-GET-green)    | `/users`             | Az összes felhasználó lekérése (admin) |
+| Felhasználó törlése        | ![DELETE](https://img.shields.io/badge/-DELETE-red)| `/deleteUser`        | Felhasználó törlése (admin)            |
+| Felhasználó szerep módosítás| ![PUT](https://img.shields.io/badge/-PUT-blue)    | `/updateUserRole`    | Felhasználó szerepének módosítása (admin) |
 
-
-    ```javascript
-    router.get('/userprofile', authenticateToken, userprofile);
-    router.get('/userprofile/:uid', anyuserprofile);
-    router.put('/editprofile', authenticateToken, editprofile);
-    ```
-
+```javascript
 app.put('/api/editProfileName', authenticateToken,
 app.put('/api/editProfilePsw', authenticateToken,
-app.post('/api/adminRegister',
+app.get('/api/users', authenticateToken,
+app.delete('/api/deleteUser', authenticateToken,
+app.put('/api/updateUserRole', authenticateToken,
+```
+
+---
+
+## 3. Termékek és kategóriák
+
+| Művelet                        | HTTP                                               | Végpont                        | Leírás                                         |
+|--------------------------------|----------------------------------------------------|--------------------------------|------------------------------------------------|
+| Termékek lekérése              | ![GET](https://img.shields.io/badge/-GET-green)    | `/products`                    | Összes termék lekérdezése                      |
+| Kategóriák lekérése            | ![GET](https://img.shields.io/badge/-GET-green)    | `/categories`                  | Összes kategória lekérdezése                   |
+| Kategória alapú termékek       | ![GET](https://img.shields.io/badge/-GET-green)    | `/getProductsByCategory`       | Termékek lekérdezése kategória szerint         |
+| Termék keresése                | ![GET](https://img.shields.io/badge/-GET-green)    | `/search/:searchQuery`         | Termék keresése kulcsszó alapján               |
+| Termék adatainak lekérése      | ![GET](https://img.shields.io/badge/-GET-green)    | `/getItem`                     | Egy termék adatainak lekérése                  |
+| Termék módosítása (kép+adat)   | ![POST](https://img.shields.io/badge/-POST-yellow) | `/updateItem`                  | Termék módosítása képpel                        |
+| Termék adat módosítása         | ![POST](https://img.shields.io/badge/-POST-yellow) | `/updateItemInfo`              | Termék adatainak frissítése                    |
+| Termék törlése                 | ![DELETE](https://img.shields.io/badge/-DELETE-red)| `/deleteProduct/:id`           | Termék törlése                                 |
+| Kategória törlése              | ![DELETE](https://img.shields.io/badge/-DELETE-red)| `/deleteCategory/:id`          | Kategória törlése                              |
+| Kategória módosítása           | ![POST](https://img.shields.io/badge/-POST-yellow) | `/updateCategory`              | Kategória adatainak módosítása                 |
+| Kategória hozzáadása           | ![POST](https://img.shields.io/badge/-POST-yellow) | `/addCategory`                 | Új kategória hozzáadása                        |
+| Kategória szerinti lekérdezés  | ![GET](https://img.shields.io/badge/-GET-green)    | `/category/:categoryId`        | Kategóriához tartozó adatok lekérése          |
+| Kép feltöltés                  | ![POST](https://img.shields.io/badge/-POST-yellow) | `/upload`                      | Kép feltöltése                                 |
+
+```javascript
 app.get('/api/products', authenticateToken,
 app.get('/api/categories', authenticateToken,
 app.get('/api/getProductsByCategory', authenticateToken,
 app.get('/api/search/:searchQuery', authenticateToken,
+app.get('/api/getItem', authenticateToken,
+app.post('/api/updateItem', authenticateToken, upload.single('pic'),
+app.post('/api/updateItemInfo', authenticateToken,
+app.delete('/api/deleteProduct/:id', authenticateToken,
+app.delete('/api/deleteCategory/:id', authenticateToken,
+app.post('/api/updateCategory', authenticateToken,
+app.post('/api/addCategory',
+app.get('/api/category/:categoryId',
+app.post('/api/upload', authenticateToken, upload.single('pic'),
+```
+
+---
+
+## 4. Kosár műveletek
+
+| Művelet                  | HTTP                                               | Végpont            | Leírás                                   |
+|--------------------------|----------------------------------------------------|--------------------|------------------------------------------|
+| Kosár elemek lekérése    | ![GET](https://img.shields.io/badge/-GET-green)    | `/getCartItems`    | Kosárban lévő elemek lekérése            |
+| Kosár összeg lekérése    | ![GET](https://img.shields.io/badge/-GET-green)    | `/getCartTotal`    | Kosár végösszeg lekérdezése              |
+| Kosárhoz adás            | ![POST](https://img.shields.io/badge/-POST-yellow) | `/addCart`         | Termék hozzáadása a kosárhoz             |
+| Kosár frissítése         | ![PUT](https://img.shields.io/badge/-PUT-blue)     | `/updateCart`      | Kosár tartalmának frissítése             |
+| Kosárból törlés          | ![POST](https://img.shields.io/badge/-POST-yellow) | `/deleteCart`      | Kosár elem törlése                       |
+
+```javascript
 app.get('/api/getCartItems', authenticateToken,
 app.get('/api/getCartTotal', authenticateToken,
 app.post('/api/addCart/', authenticateToken,
 app.put('/api/updateCart/', authenticateToken,
 app.post('/api/deleteCart', authenticateToken,
+```
+
+---
+
+## 5. Rendelések
+
+| Művelet                       | HTTP                                               | Végpont                 | Leírás                                      |
+|-------------------------------|----------------------------------------------------|--------------------------|---------------------------------------------|
+| Rendelés létrehozása          | ![POST](https://img.shields.io/badge/-POST-yellow) | `/addOrderWithItems`     | Új rendelés létrehozása a kosár alapján     |
+| Saját rendelések lekérése     | ![GET](https://img.shields.io/badge/-GET-green)    | `/my-orders`             | Bejelentkezett felhasználó rendelései       |
+| Rendelés összeg lekérése      | ![GET](https://img.shields.io/badge/-GET-green)    | `/getOrderTotal`         | Egy rendelés végösszegének lekérdezése      |
+| Összes rendelés lekérése      | ![GET](https://img.shields.io/badge/-GET-green)    | `/orders`                | Admin: összes rendelés lekérése             |
+| Rendelés állapot módosítása   | ![PUT](https://img.shields.io/badge/-PUT-blue)     | `/orders/:orderId`       | Rendelés állapotának módosítása (admin)     |
+
+```javascript
 app.post('/api/addOrderWithItems', authenticateToken,
 app.get('/api/my-orders', authenticateToken,
 app.get('/api/getOrderTotal', authenticateToken,
-app.get('/api/users', authenticateToken,
-app.delete('/api/deleteUser', authenticateToken,
-app.put('/api/updateUserRole', authenticateToken,
-app.post('/api/addCategory',
-app.post('/api/upload', authenticateToken,  upload.single('pic'),
-app.delete('/api/deleteProduct/:id', authenticateToken,
-app.delete('/api/deleteCategory/:id', authenticateToken,
-app.get('/api/getItem', authenticateToken,
-app.get('/api/category/:categoryId',
-app.post('/api/updateItem', authenticateToken, upload.single('pic'),
-app.post('/api/updateItemInfo', authenticateToken,
-app.post('/api/updateCategory', authenticateToken,
 app.get('/api/orders', authenticateToken,
 app.put('/api/orders/:orderId', authenticateToken,
+```
+
+---
+
+## 6. Egyéb
+
+| Művelet           | HTTP                                               | Végpont          | Leírás                     |
+|-------------------|----------------------------------------------------|------------------|----------------------------|
+| E-mail küldés     | ![POST](https://img.shields.io/badge/-POST-yellow) | `/send-email`    | Automatikus e-mail küldése |
+
+```javascript
 app.post('/api/send-email',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```
